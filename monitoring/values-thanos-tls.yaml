@@ -1,0 +1,128 @@
+---
+
+query:
+  replicaCount: 2
+
+  # The chart's built-in HTTPS handling does not correctly pass flags for
+  # the query component — handled manually via extraFlags below instead
+  https:
+    enabled: false
+
+  # Disabled to prevent the chart generating its own broken gRPC TLS config.
+  # gRPC TLS is fully active via --grpc-server-tls-* and --grpc-client-tls-*
+  # flags in extraFlags below — both server and client directions are covered.
+  grpc:
+    server:
+      tls:
+        enabled: false
+    client:
+      tls:
+        enabled: false
+
+  extraFlags:
+    # HTTP server TLS via Prometheus-style http.config file
+    - --http.config=/certs/http/http-tls.yaml
+    # gRPC server TLS — thanos-sidecar and storegateway connect inbound here
+    - --grpc-server-tls-cert=/certs/server/tls.crt
+    - --grpc-server-tls-key=/certs/server/tls.key
+    - --grpc-server-tls-client-ca=/certs/server/ca.crt
+    # gRPC client TLS — query connects outbound to storegateway and sidecars
+    - --grpc-client-tls-secure
+    - --grpc-client-tls-cert=/certs/client/tls.crt
+    - --grpc-client-tls-key=/certs/client/tls.key
+    - --grpc-client-tls-ca=/certs/client/ca.crt
+    # Override TLS server name — query discovers sidecars via ClusterIP which
+    # has no IP SAN; using the DNS name makes x509 validation succeed
+    - --grpc-client-server-name=prometheus-kube-prometheus-thanos-discovery.monitoring.svc.cluster.local
+
+  extraVolumes:
+    - name: thanos-query-server-tls
+      secret:
+        secretName: thanos-query-tls
+    - name: thanos-query-client-tls
+      secret:
+        secretName: monitoring-client-tls
+    - name: thanos-query-http-tls-config
+      configMap:
+        name: thanos-query-http-tls-config
+
+  extraVolumeMounts:
+    - name: thanos-query-server-tls
+      mountPath: /certs/server
+      readOnly: true
+    - name: thanos-query-client-tls
+      mountPath: /certs/client
+      readOnly: true
+    - name: thanos-query-http-tls-config
+      mountPath: /certs/http
+      readOnly: true
+
+  # Probes must use HTTPS — kubelet cannot present a client cert so the
+  # ConfigMap uses VerifyClientCertIfGiven rather than RequireAndVerifyClientCert
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+  customLivenessProbe:
+    httpGet:
+      path: /-/healthy
+      port: 10902
+      scheme: HTTPS
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 6
+  customReadinessProbe:
+    httpGet:
+      path: /-/ready
+      port: 10902
+      scheme: HTTPS
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 6
+
+storegateway:
+  replicaCount: 2
+  https:
+    enabled: true
+    existingSecret: thanos-storegateway-tls
+    certFilename: tls.crt
+    keyFilename: tls.key
+    caFilename: ca.crt
+    clientAuthType: RequireAndVerifyClientCert
+
+  # Disabled to prevent the chart generating its own broken gRPC TLS config.
+  # gRPC server TLS is active via --grpc-server-tls-* flags in extraFlags.
+  # Storegateway is a gRPC server only — no outbound gRPC client connections,
+  # so grpc.client.tls does not apply to this component at all.
+  grpc:
+    server:
+      tls:
+        enabled: false
+    client:
+      tls:
+        enabled: false
+
+  extraFlags:
+    - --grpc-server-tls-cert=/certs/server/tls.crt
+    - --grpc-server-tls-key=/certs/server/tls.key
+    - --grpc-server-tls-client-ca=/certs/server/ca.crt
+
+  extraVolumes:
+    - name: thanos-storegateway-server-tls
+      secret:
+        secretName: thanos-storegateway-tls
+
+  extraVolumeMounts:
+    - name: thanos-storegateway-server-tls
+      mountPath: /certs/server
+      readOnly: true
+
+compactor:
+  replicas: 1
+  https:
+    enabled: true
+    existingSecret: thanos-compactor-tls
+    certFilename: tls.crt
+    keyFilename: tls.key
+    caFilename: ca.crt
+    clientAuthType: RequireAndVerifyClientCert

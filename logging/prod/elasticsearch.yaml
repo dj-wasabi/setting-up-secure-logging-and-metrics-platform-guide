@@ -1,0 +1,113 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: quickstart
+  namespace: logging
+spec:
+  version: 9.3.1
+  transport:
+    tls:
+      selfSignedCertificates:
+        disabled: true
+  http:
+    tls:
+      certificate:
+        secretName: elastic-http-cert
+  auth:
+    roles:
+      - secretName: elasticsearch-custom-roles
+    fileRealm:
+      - secretName: falco-user
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.roles: ["master", "data", "remote_cluster_client"]
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.certificate: /usr/share/elasticsearch/config/transport-certs/tls.crt
+      xpack.security.transport.ssl.key: /usr/share/elasticsearch/config/transport-certs/tls.key
+      xpack.security.transport.ssl.certificate_authorities: ["/usr/share/elasticsearch/config/transport-certs/ca.crt"]
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.monitoring.collection.enabled: true
+    # zoneAwareness:
+    #   topologyKey: topology.kubernetes.io/zone
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: standard
+    podTemplate:
+      spec:
+        automountServiceAccountToken: false
+        securityContext:
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+          supplementalGroups: []
+          supplementalGroupsPolicy: Merge
+          seccompProfile:
+            type: RuntimeDefault
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: quickstart
+                topologyKey: kubernetes.io/hostname
+        topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              elasticsearch.k8s.elastic.co/cluster-name: quickstart
+        containers:
+        - name: elasticsearch
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            privileged: false
+            procMount: Default
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms1g -Xmx1g"
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: transport-certs
+            mountPath: /usr/share/elasticsearch/config/transport-certs
+        volumes:
+        - name: transport-certs
+          csi:
+            driver: csi.cert-manager.io
+            readOnly: true
+            volumeAttributes:
+              csi.cert-manager.io/issuer-name: our-own-issuer
+              csi.cert-manager.io/issuer-kind: ClusterIssuer
+              csi.cert-manager.io/issuer-group: cert-manager.io
+              csi.cert-manager.io/common-name: "${POD_NAME}.quickstart-es-default.${POD_NAMESPACE}.svc.cluster.local"
+              csi.cert-manager.io/dns-names: "${POD_NAME}.quickstart-es-default.${POD_NAMESPACE}.svc.cluster.local"
+              csi.cert-manager.io/is-ca: "false"
+              csi.cert-manager.io/duration: "8760h"
+              csi.cert-manager.io/key-usages: "digital signature, key encipherment, server auth, client auth"

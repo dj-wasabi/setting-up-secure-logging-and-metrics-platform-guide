@@ -1,0 +1,45 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: quickstart
+  namespace: logging
+spec:
+  version: 9.3.1
+  count: 1
+  elasticsearchRef:
+    name: quickstart
+  http:
+    tls:
+      certificate:
+        secretName: kibana-http-cert
+  config:
+    elasticsearch.ssl.certificate: /usr/share/kibana/config/client.crt
+    elasticsearch.ssl.key: /usr/share/kibana/config/client.key
+    elasticsearch.ssl.verificationMode: full
+    elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/ca.crt"]
+    monitoring.ui.ccs.enabled: false
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 1
+        volumeMounts:
+        - name: client-cert
+          mountPath: /usr/share/kibana/config/client.crt
+          subPath: tls.crt
+        - name: client-cert
+          mountPath: /usr/share/kibana/config/client.key
+          subPath: tls.key
+        - name: our-own-ca
+          mountPath: /usr/share/kibana/config/ca.crt
+          subPath: ca.crt
+      volumes:  # New
+      - name: client-cert
+        secret:
+          secretName: kibana-client-cert
+      - name: our-own-ca
+        secret:
+          secretName: our-own-ca

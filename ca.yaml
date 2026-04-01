@@ -1,0 +1,83 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-ca
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: our-own-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: "Our Own CA"
+  secretName: our-own-ca
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  issuerRef:
+    name: selfsigned-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: our-own-issuer
+spec:
+  ca:
+    secretName: our-own-ca
+# ---
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: Gateway
+# metadata:
+#   name: monitoring-gateway
+#   namespace: monitoring
+# spec:
+#   gatewayClassName: cilium
+#   listeners:
+#     - name: https-kibana
+#       port: 443
+#       protocol: TLS
+#       hostname: kibana.example.com
+#       tls:
+#         mode: Passthrough
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#     - name: https-prometheus
+#       protocol: HTTPS
+#       port: 443
+#       hostname: "*.example.com"
+#       tls:
+#         mode: Terminate
+#         certificateRefs:
+#         - name: monitoring-gateway-tls
+#           kind: Secret
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: monitoring-gateway-tls
+#   namespace: monitoring
+# spec:
+#   secretName: monitoring-gateway-tls
+#   dnsNames:
+#   - prometheus.example.com
+#   - alertmanager.example.com
+#   - grafana.example.com
+#   issuerRef:
+#     name: our-own-issuer
+#     kind: ClusterIssuer
+#   privateKey:
+#     rotationPolicy: Always
+

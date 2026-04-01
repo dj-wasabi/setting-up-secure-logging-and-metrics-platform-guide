@@ -1,0 +1,28 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: metricbeat-access
+  namespace: logging
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:common.k8s.elastic.co/type: beat
+      k8s:beat.k8s.elastic.co/type: metricbeat
+      k8s:beat.k8s.elastic.co/name: quickstart-metricbeat
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: logging
+        k8s:common.k8s.elastic.co/type: logstash
+        k8s:logstash.k8s.elastic.co/name: quickstart-logstash
+    toPorts:
+    - ports:
+      - port: "5044"
+        protocol: TCP
+  - toEntities:
+    - kube-apiserver
+    - host
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP

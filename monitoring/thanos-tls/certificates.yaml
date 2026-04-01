@@ -1,0 +1,71 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: thanos-query-tls
+  namespace: monitoring
+spec:
+  secretName: thanos-query-tls
+  commonName: thanos-query-query
+  dnsNames:
+    - thanos-query-query.monitoring.svc.cluster.local
+    - thanos-query-query.monitoring.svc
+    - thanos-query-query.monitoring
+    - thanos-query-query
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: thanos-storegateway-tls
+  namespace: monitoring
+spec:
+  secretName: thanos-storegateway-tls
+  commonName: thanos-query-storegateway
+  dnsNames:
+    - thanos-query-storegateway.monitoring.svc.cluster.local
+    - thanos-query-storegateway.monitoring.svc
+    - thanos-query-storegateway
+    - thanos-query-storegateway-0.thanos-query-storegateway-headless.monitoring.svc.cluster.local
+    - thanos-query-storegateway-1.thanos-query-storegateway-headless.monitoring.svc.cluster.local
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: thanos-compactor-tls
+  namespace: monitoring
+spec:
+  secretName: thanos-compactor-tls
+  dnsNames:
+    - thanos-query-compactor.monitoring.svc.cluster.local
+    - thanos-query-compactor.monitoring.svc
+    - thanos-query-compactor
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment

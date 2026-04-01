@@ -1,0 +1,24 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: falco-tls
+  namespace: falco
+spec:
+  secretName: falco-tls
+  commonName: falco
+  dnsNames:
+    - falco.falco.svc.cluster.local
+    - falco.falco.svc
+    - falco.falco
+    - falco
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment

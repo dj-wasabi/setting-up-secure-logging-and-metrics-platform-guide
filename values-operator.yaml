@@ -1,0 +1,10 @@
+---
+
+config:
+  metrics:
+    port: 9988
+
+podMonitor:
+  enabled: true
+  labels:
+    release: prometheus

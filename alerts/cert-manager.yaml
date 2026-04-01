@@ -1,0 +1,31 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cert-manager-certs
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: cert-manager
+    rules:
+    - alert: CertificateExpiringSoon
+      expr: (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 30
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Certificate {{ $labels.name }} expires in <30 days"
+    - alert: CertificateExpiringCritically
+      expr: (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 7
+      for: 5m
+      labels:
+        severity: critical
+    - alert: CertificateNotRenewed
+      expr: (certmanager_certificate_renewal_timestamp_seconds - time()) / 86400 < 0 and certmanager_certificate_ready_status == 0
+      for: 30m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Certificate {{ $labels.name }} failed to renew"

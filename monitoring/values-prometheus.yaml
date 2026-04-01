@@ -1,0 +1,106 @@
+---
+
+prometheusOperator:
+  admissionWebhooks:
+    certManager:
+      enabled: true
+
+prometheus:
+  route:
+    main:
+      enabled: true
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      hostnames: ["prometheus.example.com"]
+      parentRefs:
+      - name: example-gateway
+        namespace: kube-system
+        sectionName: https-prometheus
+      matches:
+      - path:
+          type: PathPrefix
+          value: /
+  ingress:
+    enabled: false
+
+  prometheusSpec:
+    replicas: 1
+    replicaExternalLabelName: "prometheus_replica"
+
+    thanos:
+      image: quay.io/thanos/thanos:v0.41.0
+      objectStorageConfig:
+        existingSecret:
+          name: thanos-s3-config
+          key: objectstorage.yaml
+
+  thanosService:
+    enabled: true
+
+  thanosServiceMonitor:
+    enabled: true
+
+alertmanager:
+  route:
+    main:
+      enabled: true
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      hostnames: ["alertmanager.example.com"]
+      parentRefs:
+      - name: example-gateway
+        namespace: kube-system
+        sectionName: https-alertmanager
+  ingress:
+    enabled: false
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  https: true
+  tls: {}
+
+grafana:
+  route:
+    main:
+      enabled: true
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      hostnames:
+        - grafana.example.com
+      parentRefs:
+        - name: example-gateway
+          namespace: kube-system
+          sectionName: https-grafana
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+  ingress:
+    enabled: false
+
+  serviceMonitor:
+    scheme: http
+  grafana.ini:
+    server:
+      root_url: https://grafana.example.com
+
+  sidecar:
+    datasources:
+      defaultDatasourceEnabled: false
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Thanos
+          type: prometheus
+          access: proxy
+          url: http://thanos-query-query.monitoring.svc.cluster.local:9090
+          editable: false
+          isDefault: true
+          jsonData:
+            timeInterval: 30s
+            queryTimeout: 300s
+            httpMethod: POST

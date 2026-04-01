@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kibana-client-cert
+  namespace: logging
+spec:
+  secretName: kibana-client-cert
+  commonName: kibana-client
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  usages:
+  - client auth
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 4096
+    rotationPolicy: Always

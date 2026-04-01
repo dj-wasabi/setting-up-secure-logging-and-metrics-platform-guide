@@ -1,0 +1,45 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cilium-operator-metrics-tls
+  namespace: kube-system
+spec:
+  secretName: cilium-operator-metrics-tls
+  commonName: cilium-operator
+  dnsNames:
+    - localhost
+    - cilium-operator
+    - cilium-operator.kube-system.svc.cluster.local
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hubble-metrics-tls
+  namespace: kube-system
+spec:
+  secretName: hubble-metrics-tls
+  commonName: hubble-metrics
+  dnsNames:
+    - localhost
+    - hubble-metrics
+    - hubble-metrics.kube-system.svc.cluster.local
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment

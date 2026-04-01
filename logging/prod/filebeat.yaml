@@ -1,0 +1,123 @@
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: quickstart-filebeat
+  namespace: logging
+spec:
+  type: filebeat
+  version: 9.3.1
+  config:
+    filebeat.modules:
+    - module: system
+      syslog:
+        enabled: true
+      auth:
+        enabled: true
+    filebeat.inputs:
+    - type: filestream
+      id: kubernetes-containers
+      enabled: true
+      paths:
+      - "/var/log/containers/*.log"
+      prospector.scanner.symlinks: true
+      parsers:
+      - container:
+          stream: all
+          format: auto
+      processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+          - logs_path:
+              logs_path: "/var/log/containers/"
+    file_identity.native: ~
+    close.on_state_change.inactive: 5m
+    processors:
+    - add_host_metadata: {}
+    - add_kubernetes_metadata:
+        node: ${NODE_NAME}
+    output.logstash:
+      hosts: ["quickstart-logstash-ls-beats.logging.svc:5044"]
+      loadbalance: true
+      ssl.enabled: true
+      ssl.certificate_authorities: ["/usr/share/filebeat/config/ca.crt"]
+      ssl.certificate: "/usr/share/filebeat/config/client.crt"
+      ssl.key: "/usr/share/filebeat/config/client.key"
+      ssl.verification_mode: full
+  daemonSet:
+    podTemplate:
+      spec:
+        serviceAccountName: filebeat
+        automountServiceAccountToken: true
+        terminationGracePeriodSeconds: 30
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true
+        securityContext:
+          fsGroup: 0
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+          supplementalGroups: []
+          supplementalGroupsPolicy: Merge
+          seccompProfile:
+            type: RuntimeDefault
+        containers:
+        - name: filebeat
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add: ["DAC_READ_SEARCH"]
+              drop: ["ALL"]
+            privileged: false
+            procMount: Default
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+          - name: varlogcontainers
+            mountPath: /var/log/containers
+          - name: varlogpods
+            mountPath: /var/log/pods
+          - name: varlog
+            mountPath: /var/log
+          - name: client-cert
+            mountPath: /usr/share/filebeat/config/client.crt
+            subPath: tls.crt
+          - name: client-cert
+            mountPath: /usr/share/filebeat/config/client.key
+            subPath: tls.key
+          - name: our-own-ca
+            mountPath: /usr/share/filebeat/config/ca.crt
+            subPath: ca.crt
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        volumes:
+        - name: varlogcontainers
+          hostPath:
+            path: /var/log/containers
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: client-cert
+          secret:
+            secretName: filebeat-client-cert
+        - name: our-own-ca
+          secret:
+            secretName: our-own-ca

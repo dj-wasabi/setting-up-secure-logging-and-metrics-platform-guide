@@ -1,0 +1,140 @@
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: quickstart-logstash
+  namespace: logging
+spec:
+  version: 9.3.1
+  count: 1
+  config:
+    queue.type: persisted
+    path.queue: /usr/share/logstash/pq
+    queue.max_bytes: 10gb
+    queue.checkpoint.writes: 1024
+    queue.drain: true
+  elasticsearchRefs:
+  - name: quickstart
+    clusterName: es
+  services:
+  - name: beats
+    service:
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 5044
+          name: "filebeat"
+          protocol: TCP
+          targetPort: 5044
+  volumeClaimTemplates:
+  - metadata:
+      name: pq
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: standard
+  podTemplate:
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        supplementalGroups: []
+        supplementalGroupsPolicy: Merge
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: logstash
+        resources:
+          limits:
+            cpu: 1
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          privileged: false
+          procMount: Default
+          readOnlyRootFilesystem: true
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: LS_JAVA_OPTS
+          value: "-Djava.io.tmpdir=/tmp -Xms1g -Xmx1g"
+        volumeMounts:
+        - name: server-cert
+          mountPath: /usr/share/logstash/config/server.crt
+          subPath: tls.crt
+        - name: server-cert
+          mountPath: /usr/share/logstash/config/server.key
+          subPath: tls.key
+        - name: client-cert
+          mountPath: /usr/share/logstash/config/client.crt
+          subPath: tls.crt
+        - name: client-cert
+          mountPath: /usr/share/logstash/config/client.key
+          subPath: tls.key
+        - name: our-own-ca
+          mountPath: /usr/share/logstash/config/ca.crt
+          subPath: ca.crt
+        - name: pq
+          mountPath: /usr/share/logstash/pq
+          readOnly: false
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: server-cert
+        secret:
+          secretName: logstash-server-cert
+      - name: client-cert
+        secret:
+          secretName: logstash-client-cert
+      - name: our-own-ca
+        secret:
+          secretName: our-own-ca
+      - name: tmp
+        emptyDir:
+          medium: Memory
+  pipelines:
+  - pipeline.id: main
+    config.string: |
+      input {
+        beats {
+          port => 5044
+          ssl_enabled => true
+          ssl_certificate_authorities => ["/usr/share/logstash/config/ca.crt"]
+          ssl_certificate => "/usr/share/logstash/config/server.crt"
+          ssl_key => "/usr/share/logstash/config/server.key"
+          ssl_client_authentication => "required"
+        }
+      }
+      filter {
+        # Example grok for kubelet logs (adapt patterns)
+        if [source] =~ "kubelet" {
+          grok {
+            match => { "message" => "%{SYSLOGTIMESTAMP:timestamp} %{SYSLOGHOST:hostname} kubelet$$   [0-9]+   $$: %{GREEDYDATA:log_message}" }
+          }
+          date {
+            match => [ "timestamp", "MMM dd HH:mm:ss" ]
+          }
+        }
+      }
+      output {
+        elasticsearch {
+          hosts => [ "${ES_ES_HOSTS}" ]
+          user => "${ES_ES_USER}"
+          password => "${ES_ES_PASSWORD}"
+          ssl_certificate_authorities => ["/usr/share/logstash/config/ca.crt"]
+          ssl_certificate => "/usr/share/logstash/config/client.crt"
+          ssl_key => "/usr/share/logstash/config/client.key"
+          index => "%{[@metadata][beat]}-%{+YYYY.MM.dd}"
+        }
+      }

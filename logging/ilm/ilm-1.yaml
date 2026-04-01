@@ -1,0 +1,54 @@
+apiVersion: stackconfigpolicy.k8s.elastic.co/v1alpha1
+kind: StackConfigPolicy
+metadata:
+  name: logging-ilm-snapshots
+  namespace: logging
+spec:
+  weight: 0
+  resourceSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: quickstart
+  elasticsearch:
+    snapshotRepositories:
+      my_s3_repo:
+        type: s3
+        settings:
+          bucket: my-eck-snapshots-eu-west-1
+
+    indexLifecyclePolicies:
+      logs-ilm-policy:
+        phases:
+          hot:
+            actions:
+              rollover:
+                max_age: "1d"
+                max_size: "50gb"
+          warm:
+            min_age: "7d"
+            actions:
+              shrink:
+                number_of_shards: 1
+          delete:
+            min_age: "30d"
+            actions:
+              delete: {}
+
+    snapshotLifecyclePolicies:
+      daily-snapshots:
+        schedule: "0 30 1 * * ?"
+        name: "<daily-snap-{now/d}>"
+        repository: my_s3_repo
+        config:
+          indices: ["filebeat-*", "metricbeat-*", "falco-*"]
+        retention:
+          expire_after: "30d"
+          min_count: 5
+          max_count: 50
+
+    indexTemplates:
+      composableIndexTemplates:
+        logs-ilm-template:
+          index_patterns: ["filebeat-*", "metricbeat-*", "falco-*"]
+          template:
+            settings:
+              index.lifecycle.name: "logs-ilm-policy"

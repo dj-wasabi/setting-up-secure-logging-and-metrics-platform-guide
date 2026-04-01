@@ -1,0 +1,54 @@
+---
+global:
+  security:
+    allowInsecureImages: true
+
+image:
+  registry: quay.io
+  repository: thanos/thanos
+  tag: v0.41.0
+  digest: ""
+  pullPolicy: IfNotPresent
+
+existingObjstoreSecret: thanos-s3-config
+existingObjstoreSecretItems:
+  - key: objectstorage.yaml
+    path: objstore.yml
+
+query:
+  enabled: true
+  dnsDiscovery:
+    enabled: true
+    sidecarsService: "prometheus-kube-prometheus-thanos-discovery"
+    sidecarsNamespace: "monitoring"
+    storesService: "thanos-query-storegateway"
+    storesNamespace: "monitoring"
+  networkPolicy:
+    enabled: false
+
+storegateway:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 50Gi
+  additionalHeadless: true
+  networkPolicy:
+    enabled: true
+
+compactor:
+  enabled: true
+  replicas: 1
+  retentionResolutionRaw: 30d
+  retentionResolution5m: 180d
+  retentionResolution1h: 365d
+  networkPolicy:
+    enabled: true
+
+bucketweb:
+  enabled: false
+
+ruler:
+  enabled: false
+
+queryFrontend:
+  enabled: false

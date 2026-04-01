@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cert-manager
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+  namespaceSelector:
+    matchNames:
+    - cert-manager
+  podMetricsEndpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 30s

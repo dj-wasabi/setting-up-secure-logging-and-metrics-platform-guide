@@ -1,0 +1,45 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: thanos-storegateway
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:app.kubernetes.io/component: storegateway
+      k8s:app.kubernetes.io/instance: thanos-query
+      k8s:app.kubernetes.io/name: thanos
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:app.kubernetes.io/component: query
+        k8s:app.kubernetes.io/instance: thanos-query
+    toPorts:
+    - ports:
+      - port: "10901"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        k8s:app.kubernetes.io/name: prometheus
+    toPorts:
+    - ports:
+      - port: "9090"
+        protocol: TCP
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  - toFQDNs:
+    - matchPattern: "*.amazonaws.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP

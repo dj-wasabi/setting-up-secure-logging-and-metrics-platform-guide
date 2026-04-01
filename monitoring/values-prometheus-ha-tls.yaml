@@ -1,0 +1,367 @@
+---
+
+prometheus:
+  route:
+    main:
+      enabled: false
+
+  prometheusSpec:
+    replicas: 2
+    retention: 2h
+    podAntiAffinity: hard
+    additionalScrapeConfigsSecret: {}
+
+    serviceMonitorNamespaceSelector:
+      matchLabels: {}
+    serviceMonitorSelector:
+      matchLabels: {}
+
+    externalLabels:
+      cluster: kind-kind
+
+    # Volumes declared at pod level — shared by all containers including
+    # the thanos-sidecar. The sidecar-tls volume is mounted into the sidecar
+    # via the containers strategic merge patch below.
+    volumes:
+      - name: thanos-sidecar-tls
+        secret:
+          secretName: thanos-sidecar-tls
+      - name: monitoring-client-tls
+        secret:
+          secretName: monitoring-client-tls
+      - name: prometheus-thanos-sidecar-http-tls-config
+        configMap:
+          name: prometheus-thanos-sidecar-http-tls-config
+
+    # Mount the client cert into the prometheus container only.
+    # Used by the ServiceMonitor scrape configs (Grafana, Alertmanager, Thanos).
+    volumeMounts:
+      - name: monitoring-client-tls
+        mountPath: /etc/prometheus/secrets/monitoring-client-tls
+        readOnly: true
+      - name: prometheus-thanos-sidecar-http-tls-config
+        mountPath: /etc/thanos
+        readOnly: true
+
+
+    # Enable HTTPS on the Prometheus web server.
+    # VerifyClientCertIfGiven rather than RequireAndVerifyClientCert because
+    # kubelet liveness/readiness probes cannot present a client certificate —
+    # requiring one would cause probe failures and crash-loop the pod.
+    web:
+      tlsConfig:
+        cert:
+          secret:
+            name: prometheus-tls
+            key: tls.crt
+        keySecret:
+          name: prometheus-tls
+          key: tls.key
+        clientAuthType: VerifyClientCertIfGiven
+        client_ca:
+          secret:
+            name: prometheus-tls
+            key: ca.crt
+
+    thanos:
+      # grpcServerTlsConfig accepts file paths only — secret/configmap
+      # references are not supported for this field in this operator version.
+      # The actual files are provided by the thanos-sidecar-tls volume which
+      # is mounted into the sidecar via the containers patch below.
+      grpcServerTlsConfig:
+        certFile: /etc/thanos/tls/tls.crt
+        keyFile:  /etc/thanos/tls/tls.key
+        caFile:   /etc/thanos/tls/ca.crt
+      additionalArgs:
+        - name: http.config
+          value: /etc/thanos/tls-config.yaml
+
+    # Strategic merge patch — injects the thanos-sidecar-tls volumeMount
+    # into the sidecar container. The operator merges this with its own
+    # generated container spec. The volume itself is declared above under
+    # prometheusSpec.volumes so it is available at pod level.
+    containers:
+      - name: thanos-sidecar
+        volumeMounts:
+          - name: thanos-sidecar-tls
+            mountPath: /etc/thanos/tls
+            readOnly: true
+          - name: prometheus-thanos-sidecar-http-tls-config
+            mountPath: /etc/thanos/
+            readOnly: true
+
+    # alertingEndpoints is the correct kube-prometheus-stack chart field for
+    # configuring Alertmanager connections. The chart maps this directly into
+    # spec.alerting.alertmanagers in the Prometheus CRD, replacing the
+    # chart's own auto-generated http-web entry which cannot be overridden
+    # any other way (alerting.alertmanagers in prometheusSpec is silently
+    # ignored — the chart overwrites it on every reconcile).
+    alertingEndpoints:
+      - name: prometheus-kube-prometheus-alertmanager
+        namespace: monitoring
+        port: http-web
+        scheme: https
+        pathPrefix: /
+        apiVersion: v2
+        tlsConfig:
+          ca:
+            secret:
+              name: monitoring-client-tls
+              key: ca.crt
+          cert:
+            secret:
+              name: monitoring-client-tls
+              key: tls.crt
+          keySecret:
+            name: monitoring-client-tls
+            key: tls.key
+          serverName: prometheus-kube-prometheus-alertmanager.monitoring.svc.cluster.local
+
+  thanosService:
+    port: 10901
+
+  # ServiceMonitor for the Thanos sidecar gRPC endpoint.
+  # Uses file paths because thanosServiceMonitor.tlsConfig is passed directly
+  # into the generated scrape config, not resolved via the operator's secret
+  # mounting mechanism — the files exist because monitoring-client-tls is
+  # mounted into the prometheus container via prometheusSpec.volumeMounts above.
+  thanosServiceMonitor:
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          name: alertmanager-tls
+          key: ca.crt
+      cert:
+        secret:
+          name: monitoring-client-tls
+          key: tls.crt
+      keySecret:
+        name: monitoring-client-tls
+        key: tls.key
+      serverName: prometheus-kube-prometheus-thanos-discovery.monitoring.svc.cluster.local
+
+  serviceMonitor:
+    scheme: "https"
+    tlsConfig:
+      ca:
+        secret:
+          name: alertmanager-tls
+          key: ca.crt
+      cert:
+        secret:
+          name: monitoring-client-tls
+          key: tls.crt
+      keySecret:
+        name: monitoring-client-tls
+        key: tls.key
+      serverName: prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
+
+alertmanager:
+  route:
+    main:
+      enabled: false
+
+  alertmanagerSpec:
+    replicas: 2
+
+    # Enable HTTPS on the Alertmanager web server.
+    # VerifyClientCertIfGiven for the same reason as Prometheus — kubelet
+    # probes cannot present a client certificate.
+    web:
+      tlsConfig:
+        cert:
+          secret:
+            name: alertmanager-tls
+            key: tls.crt
+        keySecret:
+          name: alertmanager-tls
+          key: tls.key
+        clientAuthType: VerifyClientCertIfGiven
+        client_ca:
+          secret:
+            name: alertmanager-tls
+            key: ca.crt
+
+  # ServiceMonitor TLS uses secret selectors — the operator resolves these
+  # and mounts the files into the Prometheus pod automatically. Do not use
+  # file paths here as they would refer to the Prometheus pod filesystem
+  # where these paths do not exist.
+  serviceMonitor:
+    enabled: false
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          name: alertmanager-tls
+          key: ca.crt
+      cert:
+        secret:
+          name: monitoring-client-tls
+          key: tls.crt
+      keySecret:
+        name: monitoring-client-tls
+        key: tls.key
+      serverName: prometheus-kube-prometheus-alertmanager.monitoring.svc.cluster.local
+
+kubeStateMetrics:
+  enabled: false
+
+grafana:
+  extraSecretMounts:
+    - name: grafana-internal-tls-nginx
+      secretName: grafana-internal-tls
+      mountPath: /etc/nginx/certs
+      readOnly: true
+    - name: grafana-internal-tls
+      secretName: grafana-internal-tls
+      mountPath: /etc/grafana/tls-internal
+      readOnly: true
+    - name: monitoring-client-tls
+      secretName: monitoring-client-tls
+      mountPath: /etc/grafana/secrets/client-tls
+      readOnly: true
+    - name: thanos-query-ca
+      secretName: thanos-query-tls
+      mountPath: /etc/grafana/secrets/thanos-ca
+      readOnly: true
+
+  extraVolumes:
+    - name: grafana-nginx-tls
+      configMap:
+        name: grafana-nginx-tls
+
+  extraContainers: |
+    - name: nginx-tls
+      image: nginx:alpine
+      ports:
+        - containerPort: 3001
+          name: https-internal
+      volumeMounts:
+        - name: grafana-nginx-tls
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: grafana-internal-tls-nginx
+          mountPath: /etc/nginx/certs
+          readOnly: true
+
+  grafana.ini:
+    server:
+      root_url: https://grafana.example.com
+      protocol: http
+      http_port: 3000
+      serve_from_sub_path: false
+    analytics:
+      reporting_enabled: false
+
+  service:
+    port: 3000
+    targetPort: 3000
+
+  sidecar:
+    dashboards:
+      enabled: true
+      reloadURL: "http://localhost:3000/api/admin/provisioning/dashboards/reload"
+    datasources:
+      defaultDatasourceEnabled: false
+      reloadURL: "http://localhost:3000/api/admin/provisioning/datasources/reload"
+
+  serviceMonitor:
+    enabled: false
+
+  # Grafana connects to Thanos Query over HTTPS with mTLS.
+  # $__file{} syntax reads the cert content from the mounted secret at
+  # runtime — Grafana resolves these paths inside its own pod filesystem.
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Thanos
+          type: prometheus
+          access: proxy
+          url: https://thanos-query-query.monitoring.svc.cluster.local:9090
+          editable: false
+          isDefault: true
+          jsonData:
+            timeInterval: 30s
+            queryTimeout: 300s
+            httpMethod: POST
+            tlsAuth: true
+            tlsAuthWithCACert: true
+          secureJsonData:
+            tlsCACert: $__file{/etc/grafana/secrets/thanos-ca/ca.crt}
+            tlsClientCert: $__file{/etc/grafana/secrets/client-tls/tls.crt}
+            tlsClientKey: $__file{/etc/grafana/secrets/client-tls/tls.key}
+
+prometheus-node-exporter:
+  extraArgs:
+    - --web.config.file=/etc/node-exporter/tls-config.yaml
+
+  extraVolumes:
+    - name: node-exporter-tls
+      secret:
+        secretName: node-exporter-tls
+    - name: node-exporter-http-tls-config
+      configMap:
+        name: node-exporter-http-tls-config
+
+  extraVolumeMounts:
+    - name: node-exporter-tls
+      mountPath: /etc/node-exporter/tls
+      readOnly: true
+    - name: node-exporter-http-tls-config
+      mountPath: /etc/node-exporter
+      readOnly: true
+
+  livenessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /
+      port: 9100
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /
+      port: 9100
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  prometheus:
+    monitor:
+      scheme: https
+      tlsConfig:
+        ca:
+          secret:
+            name: node-exporter-tls
+            key: ca.crt
+        cert:
+          secret:
+            name: monitoring-client-tls
+            key: tls.crt
+        keySecret:
+          name: monitoring-client-tls
+          key: tls.key
+        serverName: prometheus-prometheus-node-exporter.monitoring.svc.cluster.local
+
+kubeControllerManager:
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+
+kubeScheduler:
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+
+kubeProxy:
+  serviceMonitor:
+    https: false
+
+kubeEtcd:
+  serviceMonitor:
+    https: false

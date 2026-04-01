@@ -1,0 +1,57 @@
+---
+
+extraArgs:
+  - --tls-config=/etc/kube-state-metrics/tls-config.yaml
+
+volumes:
+  - name: kube-state-metrics-tls
+    secret:
+      secretName: kube-state-metrics-tls
+  - name: kube-state-metrics-http-tls-config
+    configMap:
+      name: kube-state-metrics-http-tls-config
+
+volumeMounts:
+  - name: kube-state-metrics-tls
+    mountPath: /etc/kube-state-metrics/tls
+    readOnly: true
+  - name: kube-state-metrics-http-tls-config
+    mountPath: /etc/kube-state-metrics
+    readOnly: true
+
+selfMonitor:
+  enabled: true
+  telemetryPort: 8081
+  telemetryHost: 0.0.0.0
+
+livenessProbe:
+  httpGet:
+    path: /livez
+    port: 8080
+    scheme: HTTPS
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8081
+    scheme: HTTPS
+
+prometheus:
+  monitor:
+    enabled: true
+    scheme: https
+    additionalLabels:
+      release: prometheus
+    tlsConfig:
+      ca:
+        secret:
+          name: monitoring-client-tls
+          key: ca.crt
+      cert:
+        secret:
+          name: monitoring-client-tls
+          key: tls.crt
+      keySecret:
+        name: monitoring-client-tls
+        key: tls.key
+      serverName: prometheus-kube-state-metrics.monitoring.svc.cluster.local

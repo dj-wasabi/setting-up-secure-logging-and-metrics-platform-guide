@@ -1,0 +1,74 @@
+---
+falco:
+  webserver:
+    prometheus_metrics_enabled: true
+    ssl_enabled: true
+    ssl_certificate: /etc/falco/certs/falco.pem
+
+falcoctl:
+  config:
+    artifact:
+      follow:
+        falcoversions: https://localhost:8765/versions
+
+metrics:
+  enabled: true
+
+mounts:
+  volumes:
+  - name: falco-tls
+    secret:
+      secretName: falco-tls
+  - name: falco-tls-combined
+    emptyDir: {}
+  volumeMounts:
+  - name: falco-tls-combined
+    mountPath: /etc/falco/certs
+  - name: falco-tls
+    mountPath: /tmp/tls
+    readOnly: true
+
+extra:
+  initContainers:
+  - name: combine-certs
+    image: busybox:1.37
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo "=== Falco mTLS cert combine starting ==="
+        ls -l /tmp/tls
+        cat /tmp/tls/tls.crt /tmp/tls/tls.key > /etc/falco/certs/falco.pem
+        chmod 600 /etc/falco/certs/falco.pem
+        echo "PEM created successfully ($(wc -c < /etc/falco/certs/falco.pem) bytes)"
+        ls -l /etc/falco/certs/falco.pem
+        echo "=== Done ==="
+    volumeMounts:
+      - name: falco-tls
+        mountPath: /tmp/tls
+        readOnly: true
+      - name: falco-tls-combined
+        mountPath: /etc/falco/certs
+
+serviceMonitor:
+  create: true
+  labels:
+    release: prometheus
+  scheme: https
+  tlsConfig:
+    ca:
+      secret:
+        name: monitoring-client-tls
+        key: ca.crt
+    cert:
+      secret:
+        name: monitoring-client-tls
+        key: tls.crt
+    keySecret:
+      name: monitoring-client-tls
+      key: tls.key
+    serverName: falco.falco.svc.cluster.local
+    insecureSkipVerify: false
+  interval: 15s
+  scrapeTimeout: 10s

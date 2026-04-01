@@ -1,0 +1,98 @@
+---
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+operator:
+  prometheus:
+    enabled: true
+    tls:
+      enabled: true
+      server:
+        existingSecret: cilium-operator-metrics-tls
+        mtls:
+          enabled: true
+
+hubble:
+  metrics:
+    enableOpenMetrics: true
+    tls:
+      enabled: true
+      server:
+        existingSecret: hubble-metrics-tls
+        mtls:
+          enabled: true
+  relay:
+    enabled: true
+    prometheus:
+      enabled: true
+
+envoy:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ---
+# prometheus:
+#   enabled: true
+#   tls:
+#     enabled: true
+#     server:
+#       existingSecret: cilium-agent-metrics-tls
+#       mtls:
+#         enabled: true
+#   serviceMonitor:
+#     enabled: false
+
+# operator:
+#   prometheus:
+#     enabled: true
+#     tls:
+#       enabled: true
+#       server:
+#         existingSecret: cilium-operator-metrics-tls
+#         mtls:
+#           enabled: true
+#     serviceMonitor:
+#       enabled: false
+
+# hubble:
+#   metrics:
+#     enableOpenMetrics: true
+#     tls:
+#       enabled: true
+#       server:
+#         existingSecret: hubble-metrics-tls
+#         mtls:
+#           enabled: true
+#           # name: hubble-metrics-ca
+#     serviceMonitor:
+#       enabled: false
+
+#   relay:
+#     enabled: true
+#     prometheus:
+#       enabled: true
+#       tls:
+#         enabled: true
+#         server:
+#           existingSecret: hubble-relay-metrics-tls
+#           mtls:
+#             enabled: true
+#       enabled: true
+#       serviceMonitor:
+#         enabled: false
+
+# envoy:
+#   prometheus:
+#     enabled: true
+#     serviceMonitor:
+#       enabled: false
+#     tls:
+#       enabled: true
+#       server:
+#         existingSecret: cilium-agent-metrics-tls
+#         mtls:
+#           enabled: true

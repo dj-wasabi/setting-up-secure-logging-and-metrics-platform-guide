@@ -1,0 +1,104 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: monitoring
+spec:
+  secretName: grafana-tls
+  dnsNames:
+  - grafana.example.com
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-internal-tls
+  namespace: monitoring
+spec:
+  secretName: grafana-internal-tls
+  commonName: prometheus-grafana.monitoring.svc.cluster.local
+  dnsNames:
+    - prometheus-grafana.monitoring.svc.cluster.local
+    - prometheus-grafana.monitoring.svc
+    - prometheus-grafana.monitoring
+    - prometheus-grafana
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: example-gateway
+  namespace: kube-system
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https-kibana
+      port: 443
+      protocol: TLS
+      hostname: kibana.example.com
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-prometheus
+      hostname: prometheus.example.com
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-alertmanager
+      hostname: alertmanager.example.com
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-grafana
+      hostname: grafana.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: grafana-tls
+            namespace: monitoring
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-kube-system-to-grafana-tls
+  namespace: monitoring
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: kube-system
+  to:
+  - group: ""
+    kind: Secret
+    name: grafana-tls

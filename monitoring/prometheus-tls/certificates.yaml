@@ -1,0 +1,137 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prometheus-tls
+  namespace: monitoring
+spec:
+  secretName: prometheus-tls
+  commonName: prometheus
+  dnsNames:
+    - prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
+    - prometheus-kube-prometheus-prometheus.monitoring.svc
+    - prometheus-kube-prometheus-prometheus
+    # - prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
+    # - prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc
+    # - prometheus-prometheus-kube-prometheus-prometheus
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: alertmanager-tls
+  namespace: monitoring
+spec:
+  secretName: alertmanager-tls
+  dnsNames:
+  - alertmanager.example.com
+  - prometheus-kube-prometheus-alertmanager.monitoring.svc.cluster.local
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: node-exporter-tls
+  namespace: monitoring
+spec:
+  secretName: node-exporter-tls
+  commonName: node-exporter
+  dnsNames:
+    - prometheus-prometheus-node-exporter.monitoring.svc.cluster.local
+    - prometheus-prometheus-node-exporter.monitoring.svc
+    - prometheus-prometheus-node-exporter.monitoring
+    - prometheus-prometheus-node-exporter
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kube-state-metrics-tls
+  namespace: monitoring
+spec:
+  secretName: kube-state-metrics-tls
+  commonName: kube-state-metrics
+  dnsNames:
+    - prometheus-kube-state-metrics.monitoring.svc.cluster.local
+    - prometheus-kube-state-metrics.monitoring.svc
+    - prometheus-kube-state-metrics.monitoring
+    - prometheus-kube-state-metrics
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: monitoring-client-tls
+  namespace: monitoring
+spec:
+  secretName: monitoring-client-tls
+  commonName: monitoring-client
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+  usages:
+    - client auth
+    - digital signature
+    - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: thanos-sidecar-tls
+  namespace: monitoring
+spec:
+  secretName: thanos-sidecar-tls
+  commonName: thanos-sidecar
+  dnsNames:
+    - prometheus-kube-prometheus-thanos-discovery.monitoring.svc.cluster.local
+    - prometheus-kube-prometheus-thanos-discovery.monitoring.svc
+    - prometheus-kube-prometheus-thanos-discovery
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  privateKey:
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment

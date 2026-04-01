@@ -1,0 +1,83 @@
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: quickstart-filebeat
+  namespace: logging
+spec:
+  type: filebeat
+  version: 9.3.1
+  config:
+    filebeat.modules:
+      - module: system
+        syslog:
+          enabled: true
+        auth:
+          enabled: true
+    filebeat.inputs:
+      - type: filestream
+        id: kubernetes-containers
+        enabled: true
+        paths:
+          - "/var/log/containers/*.log"
+        prospector.scanner.symlinks: true
+        parsers:
+          - container:
+              stream: all
+              format: auto
+        processors:
+          - add_kubernetes_metadata:
+              host: ${NODE_NAME}
+              matchers:
+                - logs_path:
+                    logs_path: "/var/log/containers/"
+        file_identity.native: ~
+        close.on_state_change.inactive: 5m
+
+    processors:
+      - add_host_metadata: {}
+      - add_kubernetes_metadata:
+          node: ${NODE_NAME}
+    output.logstash:
+      hosts: ["quickstart-logstash-ls-beats.logging.svc:5044"]
+      loadbalance: true
+  daemonSet:
+    podTemplate:
+      spec:
+        serviceAccountName: filebeat
+        automountServiceAccountToken: true
+        terminationGracePeriodSeconds: 30
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true
+        containers:
+        - name: filebeat
+          securityContext:
+            runAsUser: 0
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+          - name: varlogcontainers
+            mountPath: /var/log/containers
+          - name: varlogpods
+            mountPath: /var/log/pods
+          - name: varlog
+            mountPath: /var/log
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+        volumes:
+        - name: varlogcontainers
+          hostPath:
+            path: /var/log/containers
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+        - name: varlog
+          hostPath:
+            path: /var/log

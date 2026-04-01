@@ -1,0 +1,87 @@
+---
+driver:
+  kind: modern_ebpf
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  http_output:
+    enabled: true
+    url: http://falco-falcosidekick:2801/
+
+customRules:
+  custom-rules.yaml: |-
+    - list: trusted-procs
+      items: [falco, microk8s, containerd, dockerd, kubelet, systemd, crio]
+
+    - list: network_tools
+      items: [curl, wget, nc, ncat, netcat, telnet, ssh, nmap, dig, host, nslookup, socat, tcpdump]
+
+    - rule: Unauthorized File Write in /etc
+      desc: Detect writes to /etc (potential persistence)
+      condition: (open_write or evt.type=creat) and etc_dir and not proc.name in (trusted-procs)
+      output: "Unauthorized write to /etc (user=%user.name command=%proc.cmdline file=%fd.name)"
+      priority: WARNING
+      tags: [filesystem, mitre_persistence]
+
+    - rule: Suspicious Shell Spawn
+      desc: Detect shell execution in containers (potential escape)
+      condition: spawned_process and proc.name in (sh, bash, zsh) and container.id exists
+      output: "Shell spawned in container (user=%user.name parent=%proc.pname cmd=%proc.cmdline container=%container.id)"
+      priority: CRITICAL
+      tags: [process, mitre_execution]
+
+    - rule: Privilege Escalation Attempt
+      desc: Detect setuid/setgid or sudo usage
+      condition: evt.type=execve and (proc.name contains "sudo" or proc.cmdline contains "setuid")  # ← removed "and evt.dir=<"
+      output: "Privilege escalation detected (command=%proc.cmdline user=%user.name)"
+      priority: ERROR
+      tags: [privilege, mitre_privilege_escalation]
+
+    - rule: Network Tool Spawned in Container
+      desc: Detect execution of network utilities inside containers (potential exfil/recon)
+      condition: spawned_process and proc.name in (network_tools) and container.id exists
+      output: "Network tool spawned in container (user=%user.name command=%proc.cmdline container=%container.id image=%container.image.repository)"
+      priority: NOTICE
+      tags: [process, network, mitre_execution, mitre_exfiltration]
+
+falcosidekick:
+  enabled: true
+  fullNameOverride: falco-falcosidekick
+  config:
+    elasticsearch:
+      hostport: 'https://quickstart-es-http.logging.svc:9200'
+      checkcert: false
+      mutualtls: true
+
+    extraEnv:
+      - name: ELASTICSEARCH_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: falco-user
+            key: username
+      - name: ELASTICSEARCH_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: falco-user
+            key: password
+
+  extraVolumes:
+  - name: client-certs
+    secret:
+      secretName: falco-client-cert
+      items:
+      - key: tls.crt
+        path: client.crt
+      - key: tls.key
+        path: client.key
+      - key: ca.crt
+        path: ca.crt
+
+  extraVolumeMounts:
+  - name: client-certs
+    mountPath: /etc/certs
+    readOnly: true
+
+  webui:
+    enabled: false

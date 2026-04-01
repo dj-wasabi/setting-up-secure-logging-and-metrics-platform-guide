@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thanos-query-http-tls-config
+  namespace: monitoring
+data:
+  http-tls.yaml: |
+    tls_server_config:
+      cert_file: /certs/server/tls.crt
+      key_file: /certs/server/tls.key
+      client_ca_file: /certs/server/ca.crt
+      client_auth_type: VerifyClientCertIfGiven

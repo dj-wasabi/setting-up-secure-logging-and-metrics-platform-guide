@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kibana-http-cert
+  namespace: logging
+spec:
+  secretName: kibana-http-cert
+  duration: 8760h
+  renewBefore: 720h
+  commonName: quickstart-kb-http.logging.svc.cluster.local
+  dnsNames:
+    - quickstart-kb-http.logging.svc
+    - quickstart-kb-http.logging.svc.cluster.local
+    - "*.quickstart-kb.logging.svc"
+    - "*.quickstart-kb.logging.svc.cluster.local"
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 4096
+    rotationPolicy: Always
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

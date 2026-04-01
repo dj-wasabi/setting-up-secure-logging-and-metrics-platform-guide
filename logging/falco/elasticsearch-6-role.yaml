@@ -1,0 +1,50 @@
+kind: Secret
+apiVersion: v1
+metadata:
+  name: elasticsearch-custom-roles
+  namespace: logging
+stringData:
+  roles.yml: |-
+    eck_logstash_user_role:
+      cluster:
+      - monitor
+      - manage_ilm
+      - read_ilm
+      - manage_logstash_pipelines
+      - manage_index_templates
+      - cluster:admin/ingest/pipeline/get
+      indices:
+      - names:
+        - logstash
+        - logstash-*
+        - ecs-logstash
+        - ecs-logstash-*
+        - logs-*
+        - metrics-*
+        - synthetics-*
+        - traces-*
+        - filebeat*
+        - metricbeat*
+        - heartbeat*
+        - auditbeat*
+        - dlq*
+        - dead-letter-queue
+        privileges:
+        - manage
+        - write
+        - create_index
+        - read
+        - view_index_metadata
+        - create
+        - manage_ilm
+    falco_writer_role:
+      cluster: []
+      indices:
+      - names:
+        - falco-*
+        privileges:
+        - auto_configure
+        - create_index
+        - index
+        - read
+        - view_index_metadata

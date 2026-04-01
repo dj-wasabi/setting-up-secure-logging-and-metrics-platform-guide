@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: logstash-server-cert
+  namespace: logging
+spec:
+  secretName: logstash-server-cert
+  commonName: quickstart-logstash-ls-beats.logging.svc
+  dnsNames:
+  - quickstart-logstash-ls-beats.logging.svc
+  - quickstart-logstash-ls-beats.logging.svc.cluster.local
+  - quickstart-logstash.logging.svc
+  - quickstart-logstash.logging.svc.cluster.local
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+  usages:
+  - server auth
+  - client auth
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 4096
+    rotationPolicy: Always

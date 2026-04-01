@@ -1,0 +1,72 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: example-gateway
+  namespace: kube-system
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https-kibana
+      port: 443
+      protocol: TLS
+      hostname: kibana.example.com
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-prometheus
+      protocol: HTTPS
+      port: 443
+      hostname: prometheus.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+        - name: monitoring-gateway-tls
+          kind: Secret
+          namespace: monitoring
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-alertmanager
+      protocol: HTTPS
+      port: 443
+      hostname: alertmanager.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+        - name: monitoring-gateway-tls
+          kind: Secret
+          namespace: monitoring
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-grafana
+      hostname: grafana.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+        - name: monitoring-gateway-tls
+          kind: Secret
+          namespace: monitoring
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-kube-system-to-monitoring-tls
+  namespace: monitoring
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: kube-system
+  to:
+  - group: ""
+    kind: Secret
+    name: monitoring-gateway-tls

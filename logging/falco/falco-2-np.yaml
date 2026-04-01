@@ -1,0 +1,70 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: falco-access
+  namespace: falco
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:app.kubernetes.io/instance: falco
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:app.kubernetes.io/name: falco
+    toPorts:
+    - ports:
+      - port: "2801"
+        protocol: TCP
+      - port: "8765"
+        protocol: TCP
+
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: monitoring
+        k8s:app.kubernetes.io/name: prometheus
+    toPorts:
+    - ports:
+      - port: "8765"
+        protocol: TCP
+
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s:app.kubernetes.io/name: falcosidekick
+    toPorts:
+    - ports:
+      - port: "2801"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: logging
+        k8s:common.k8s.elastic.co/type: elasticsearch
+        k8s:elasticsearch.k8s.elastic.co/cluster-name: quickstart
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+
+  - toEntities:
+    - kube-apiserver
+    - host
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": "kube-system"
+        "k8s:k8s-app": "kube-dns"
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP

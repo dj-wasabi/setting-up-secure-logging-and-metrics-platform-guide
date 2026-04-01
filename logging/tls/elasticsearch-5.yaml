@@ -1,0 +1,80 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: quickstart
+  namespace: logging
+spec:
+  version: 9.3.1
+  transport:
+    tls:
+      selfSignedCertificates:
+        disabled: true
+  http:
+    tls:
+      certificate:
+        secretName: elastic-http-cert
+  auth:
+    roles:
+      - secretName: elasticsearch-custom-roles
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.roles: ["master", "data", "remote_cluster_client"]
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.certificate: /usr/share/elasticsearch/config/transport-certs/tls.crt
+      xpack.security.transport.ssl.key: /usr/share/elasticsearch/config/transport-certs/tls.key
+      xpack.security.transport.ssl.certificate_authorities: ["/usr/share/elasticsearch/config/transport-certs/ca.crt"]
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.http.ssl.client_authentication: optional
+      xpack.monitoring.collection.enabled: true
+      xpack.security.authc.realms:
+        pki:
+          pki1:
+            order: 0
+            certificate_authorities: ["/usr/share/elasticsearch/config/transport-certs/ca.crt"]
+            delegation.enabled: true
+        file:
+          file1:
+            order: 1
+        native:
+          native1:
+            enabled: false
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms1g -Xmx1g"
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: transport-certs
+            mountPath: /usr/share/elasticsearch/config/transport-certs
+          - name: role-mapping
+            mountPath: /usr/share/elasticsearch/config/role_mapping.yml
+            subPath: role_mapping.yml
+        volumes:
+        - name: transport-certs
+          csi:
+            driver: csi.cert-manager.io
+            readOnly: true
+            volumeAttributes:
+              csi.cert-manager.io/issuer-name: our-own-issuer
+              csi.cert-manager.io/issuer-kind: ClusterIssuer
+              csi.cert-manager.io/issuer-group: cert-manager.io
+              csi.cert-manager.io/common-name: "${POD_NAME}.quickstart-es-default.${POD_NAMESPACE}.svc.cluster.local"
+              csi.cert-manager.io/dns-names: "${POD_NAME}.quickstart-es-default.${POD_NAMESPACE}.svc.cluster.local"
+              csi.cert-manager.io/is-ca: "false"
+              csi.cert-manager.io/duration: "8760h"
+              csi.cert-manager.io/key-usages: "digital signature, key encipherment, server auth, client auth"
+        - name: role-mapping
+          configMap:
+            name: es-role-mapping

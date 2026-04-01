@@ -1,0 +1,92 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-operator-metrics
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cilium-operator
+    app.kubernetes.io/part-of: cilium
+    k8s-app: cilium-operator
+spec:
+  clusterIP: None
+  selector:
+    io.cilium/app: operator
+  ports:
+    - name: metrics
+      port: 9963
+      targetPort: 9963
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-operator
+  namespace: kube-system
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-operator
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: metrics
+      scheme: https
+      interval: 10s
+      honorLabels: true
+      path: /metrics
+      tlsConfig:
+        caFile: /etc/prometheus/secrets/monitoring-client-tls/ca.crt
+        certFile: /etc/prometheus/secrets/monitoring-client-tls/tls.crt
+        keyFile: /etc/prometheus/secrets/monitoring-client-tls/tls.key
+        serverName: cilium-operator
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble-metrics
+  namespace: kube-system
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hubble
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: hubble-metrics
+      scheme: https
+      interval: 10s
+      honorLabels: true
+      path: /metrics
+      tlsConfig:
+        caFile: /etc/prometheus/secrets/monitoring-client-tls/ca.crt
+        certFile: /etc/prometheus/secrets/monitoring-client-tls/tls.crt
+        keyFile: /etc/prometheus/secrets/monitoring-client-tls/tls.key
+        serverName: hubble-metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: metrics
+      scheme: http
+      interval: 10s
+      honorLabels: true
+      path: /metrics

@@ -1,0 +1,11 @@
+---
+
+hubble:
+  relay:
+    logOptions:
+      format: json
+      level: info
+
+envoy:
+  log:
+    formatJson: true

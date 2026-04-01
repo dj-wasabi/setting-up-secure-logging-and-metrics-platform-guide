@@ -1,0 +1,22 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: quickstart
+  namespace: logging
+spec:
+  version: 9.3.1
+  count: 1
+  elasticsearchRef:
+    name: quickstart
+  http:
+    tls:
+      certificate:
+        secretName: kibana-http-cert
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 1

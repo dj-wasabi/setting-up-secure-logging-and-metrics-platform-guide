@@ -1,0 +1,61 @@
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: quickstart-logstash
+  namespace: logging
+spec:
+  version: 9.3.1
+  count: 1
+  elasticsearchRefs:
+  - name: quickstart
+    clusterName: es
+  services:
+    - name: beats
+      service:
+        spec:
+          type: ClusterIP
+          ports:
+            - port: 5044
+              name: "filebeat"
+              protocol: TCP
+              targetPort: 5044
+  podTemplate:
+    spec:
+      containers:
+      - name: logstash
+        resources:
+          limits:
+            cpu: 1
+            memory: 2Gi
+        env:
+        - name: LS_JAVA_OPTS
+          value: "-Xms1g -Xmx1g"
+  pipelines:
+  - pipeline.id: main
+    config.string: |
+      input {
+        beats {
+          port => 5044
+        }
+      }
+      filter {
+        if [source] =~ "kubelet" {
+          grok {
+            match => {
+              "message" => "%{SYSLOGTIMESTAMP:timestamp} %{SYSLOGHOST:hostname} kubelet$$   [0-9]+   $$: %{GREEDYDATA:log_message}"
+            }
+          }
+          date {
+            match => [ "timestamp", "MMM dd HH:mm:ss" ]
+          }
+        }
+      }
+      output {
+        elasticsearch {
+          hosts => [ "${ES_ES_HOSTS}" ]
+          user => "${ES_ES_USER}"
+          password => "${ES_ES_PASSWORD}"
+          index => "%{[@metadata][beat]}-%{+YYYY.MM.dd}"
+          ssl_certificate_authorities => "${ES_ES_SSL_CERTIFICATE_AUTHORITY}"
+        }
+      }

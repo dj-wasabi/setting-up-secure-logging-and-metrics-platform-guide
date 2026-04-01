@@ -1,0 +1,26 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: elastic-http-cert
+  namespace: logging
+spec:
+  secretName: elastic-http-cert
+  duration: 8760h
+  renewBefore: 720h
+  commonName: quickstart-es-http.logging.svc.cluster.local
+  dnsNames:
+    - quickstart-es-http.logging.svc
+    - quickstart-es-http.logging.svc.cluster.local
+    - "*.quickstart-es.logging.svc"
+    - "*.quickstart-es.logging.svc.cluster.local"
+    - "*.quickstart-es-default.logging.svc.cluster.local"
+    - "localhost"
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 4096
+    rotationPolicy: Always
+  issuerRef:
+    name: our-own-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

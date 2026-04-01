@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: reflector-access
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:app.kubernetes.io/instance: reflector
+      k8s:app.kubernetes.io/name: reflector
+  egress:
+  - toEntities:
+    - kube-apiserver
+    - host
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP

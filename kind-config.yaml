@@ -1,0 +1,44 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  apiServerAddress: "127.0.0.1"
+  apiServerPort: 6443
+nodes:
+  - role: control-plane
+    extraPortMappings:
+    - containerPort: 80
+      hostPort: 8080
+      listenAddress: "0.0.0.0"
+      protocol: TCP
+    - containerPort: 443
+      hostPort: 8443
+      listenAddress: "0.0.0.0"
+      protocol: TCP
+    labels:
+      kubernetes.io/hostname: control
+      topology.kubernetes.io/zone: zone-a
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        controllerManager:
+          extraArgs:
+            bind-address: "0.0.0.0"
+        scheduler:
+          extraArgs:
+            bind-address: "0.0.0.0"
+        etcd:
+          local:
+            extraArgs:
+              listen-metrics-urls: "http://0.0.0.0:2381"
+      - |
+        kind: KubeProxyConfiguration
+        metricsBindAddress: "0.0.0.0:10249"
+  - role: worker
+    labels:
+      kubernetes.io/hostname: worker-1
+      topology.kubernetes.io/zone: zone-a
+  - role: worker
+    labels:
+      kubernetes.io/hostname: worker-2
+      topology.kubernetes.io/zone: zone-b

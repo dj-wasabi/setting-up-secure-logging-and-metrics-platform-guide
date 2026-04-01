@@ -1,0 +1,42 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: elastic-operator-access
+  namespace: elastic-system
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:app.kubernetes.io/name: elastic-operator
+  ingress:
+  - fromEntities:
+    - kube-apiserver
+    toPorts:
+    - ports:
+      - port: "9443"
+        protocol: TCP
+  egress:
+  - toEntities:
+    - kube-apiserver
+    - host
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: logging
+        k8s:common.k8s.elastic.co/type: elasticsearch
+        k8s:elasticsearch.k8s.elastic.co/cluster-name: quickstart
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: logging
+        k8s:common.k8s.elastic.co/type: kibana
+        k8s:kibana.k8s.elastic.co/name: quickstart
+    toPorts:
+    - ports:
+      - port: "5601"
+        protocol: TCP
