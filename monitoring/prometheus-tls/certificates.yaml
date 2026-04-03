@@ -11,9 +11,6 @@ spec:
     - prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
     - prometheus-kube-prometheus-prometheus.monitoring.svc
     - prometheus-kube-prometheus-prometheus
-    # - prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
-    # - prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc
-    # - prometheus-prometheus-kube-prometheus-prometheus
   issuerRef:
     name: our-own-issuer
     kind: ClusterIssuer

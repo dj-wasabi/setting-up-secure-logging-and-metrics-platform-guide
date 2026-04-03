@@ -48,6 +48,22 @@ spec:
         supplementalGroupsPolicy: Merge
         seccompProfile:
           type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  logstash.k8s.elastic.co/name: quickstart-logstash
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            logstash.k8s.elastic.co/name: quickstart-logstash
       containers:
       - name: logstash
         resources:

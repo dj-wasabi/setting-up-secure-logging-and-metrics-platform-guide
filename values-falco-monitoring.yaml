@@ -9,7 +9,18 @@ falcoctl:
   config:
     artifact:
       follow:
-        falcoversions: https://localhost:8765/versions
+        falcoversions: https://falco.falco.svc.cluster.local:8765/versions
+
+  artifact:
+    follow:
+      env:
+        - name: SSL_CERT_FILE
+          value: /etc/falco-client/ca.crt
+      mounts:
+        volumeMounts:
+          - name: falco-client-cert
+            mountPath: /etc/falco-client
+            readOnly: true
 
 metrics:
   enabled: true
@@ -21,6 +32,9 @@ mounts:
       secretName: falco-tls
   - name: falco-tls-combined
     emptyDir: {}
+  - name: falco-client-cert
+    secret:
+      secretName: falco-client-cert
   volumeMounts:
   - name: falco-tls-combined
     mountPath: /etc/falco/certs
