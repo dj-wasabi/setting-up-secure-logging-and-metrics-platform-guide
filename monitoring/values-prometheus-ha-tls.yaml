@@ -19,9 +19,6 @@ prometheus:
     externalLabels:
       cluster: kind-kind
 
-    # Volumes declared at pod level — shared by all containers including
-    # the thanos-sidecar. The sidecar-tls volume is mounted into the sidecar
-    # via the containers strategic merge patch below.
     volumes:
       - name: thanos-sidecar-tls
         secret:
@@ -33,8 +30,6 @@ prometheus:
         configMap:
           name: prometheus-thanos-sidecar-http-tls-config
 
-    # Mount the client cert into the prometheus container only.
-    # Used by the ServiceMonitor scrape configs (Grafana, Alertmanager, Thanos).
     volumeMounts:
       - name: monitoring-client-tls
         mountPath: /etc/prometheus/secrets/monitoring-client-tls
@@ -43,11 +38,6 @@ prometheus:
         mountPath: /etc/thanos
         readOnly: true
 
-
-    # Enable HTTPS on the Prometheus web server.
-    # VerifyClientCertIfGiven rather than RequireAndVerifyClientCert because
-    # kubelet liveness/readiness probes cannot present a client certificate —
-    # requiring one would cause probe failures and crash-loop the pod.
     web:
       tlsConfig:
         cert:
@@ -64,10 +54,6 @@ prometheus:
             key: ca.crt
 
     thanos:
-      # grpcServerTlsConfig accepts file paths only — secret/configmap
-      # references are not supported for this field in this operator version.
-      # The actual files are provided by the thanos-sidecar-tls volume which
-      # is mounted into the sidecar via the containers patch below.
       grpcServerTlsConfig:
         certFile: /etc/thanos/tls/tls.crt
         keyFile:  /etc/thanos/tls/tls.key
@@ -75,11 +61,6 @@ prometheus:
       additionalArgs:
         - name: http.config
           value: /etc/thanos/tls-config.yaml
-
-    # Strategic merge patch — injects the thanos-sidecar-tls volumeMount
-    # into the sidecar container. The operator merges this with its own
-    # generated container spec. The volume itself is declared above under
-    # prometheusSpec.volumes so it is available at pod level.
     containers:
       - name: thanos-sidecar
         volumeMounts:
@@ -90,12 +71,6 @@ prometheus:
             mountPath: /etc/thanos/
             readOnly: true
 
-    # alertingEndpoints is the correct kube-prometheus-stack chart field for
-    # configuring Alertmanager connections. The chart maps this directly into
-    # spec.alerting.alertmanagers in the Prometheus CRD, replacing the
-    # chart's own auto-generated http-web entry which cannot be overridden
-    # any other way (alerting.alertmanagers in prometheusSpec is silently
-    # ignored — the chart overwrites it on every reconcile).
     alertingEndpoints:
       - name: prometheus-kube-prometheus-alertmanager
         namespace: monitoring
@@ -120,11 +95,6 @@ prometheus:
   thanosService:
     port: 10901
 
-  # ServiceMonitor for the Thanos sidecar gRPC endpoint.
-  # Uses file paths because thanosServiceMonitor.tlsConfig is passed directly
-  # into the generated scrape config, not resolved via the operator's secret
-  # mounting mechanism — the files exist because monitoring-client-tls is
-  # mounted into the prometheus container via prometheusSpec.volumeMounts above.
   thanosServiceMonitor:
     scheme: https
     tlsConfig:
@@ -165,9 +135,6 @@ alertmanager:
   alertmanagerSpec:
     replicas: 2
 
-    # Enable HTTPS on the Alertmanager web server.
-    # VerifyClientCertIfGiven for the same reason as Prometheus — kubelet
-    # probes cannot present a client certificate.
     web:
       tlsConfig:
         cert:
@@ -183,10 +150,6 @@ alertmanager:
             name: alertmanager-tls
             key: ca.crt
 
-  # ServiceMonitor TLS uses secret selectors — the operator resolves these
-  # and mounts the files into the Prometheus pod automatically. Do not use
-  # file paths here as they would refer to the Prometheus pod filesystem
-  # where these paths do not exist.
   serviceMonitor:
     enabled: false
     scheme: https
@@ -270,9 +233,6 @@ grafana:
   serviceMonitor:
     enabled: false
 
-  # Grafana connects to Thanos Query over HTTPS with mTLS.
-  # $__file{} syntax reads the cert content from the mounted secret at
-  # runtime — Grafana resolves these paths inside its own pod filesystem.
   datasources:
     datasources.yaml:
       apiVersion: 1

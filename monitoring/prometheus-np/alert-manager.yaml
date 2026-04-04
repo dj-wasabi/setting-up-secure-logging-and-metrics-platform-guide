@@ -15,8 +15,6 @@ spec:
     - remote-node
     toPorts:
     - ports:
-      # - port: "8080"
-      #   protocol: TCP
       - port: "9093"
         protocol: TCP
   - fromEndpoints:

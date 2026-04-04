@@ -20,15 +20,6 @@ spec:
         protocol: TCP
       - port: "8081"
         protocol: TCP
-  # - fromEntities:
-  #   - host
-  #   - remote-node
-  #   toPorts:
-  #   - ports:
-  #     - port: "8080"
-  #       protocol: TCP
-  #     - port: "8081"
-  #       protocol: TCP
   egress:
   - toEntities:
     - kube-apiserver

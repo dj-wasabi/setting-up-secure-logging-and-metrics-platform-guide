@@ -21,7 +21,6 @@ query:
     seccompProfile:
       type: RuntimeDefault
 
-  # Scheduling + HA
   podAntiAffinityPreset: hard
   topologySpreadConstraints:
     - maxSkew: 1

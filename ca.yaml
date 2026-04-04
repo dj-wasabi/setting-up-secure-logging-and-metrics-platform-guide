@@ -18,7 +18,7 @@ spec:
   privateKey:
     algorithm: RSA
     encoding: PKCS1
-    size: 2048
+    size: 4096
     rotationPolicy: Always
   issuerRef:
     name: selfsigned-ca
@@ -36,48 +36,3 @@ metadata:
 spec:
   ca:
     secretName: our-own-ca
-# ---
-# apiVersion: gateway.networking.k8s.io/v1
-# kind: Gateway
-# metadata:
-#   name: monitoring-gateway
-#   namespace: monitoring
-# spec:
-#   gatewayClassName: cilium
-#   listeners:
-#     - name: https-kibana
-#       port: 443
-#       protocol: TLS
-#       hostname: kibana.example.com
-#       tls:
-#         mode: Passthrough
-#       allowedRoutes:
-#         namespaces:
-#           from: All
-#     - name: https-prometheus
-#       protocol: HTTPS
-#       port: 443
-#       hostname: "*.example.com"
-#       tls:
-#         mode: Terminate
-#         certificateRefs:
-#         - name: monitoring-gateway-tls
-#           kind: Secret
-# ---
-# apiVersion: cert-manager.io/v1
-# kind: Certificate
-# metadata:
-#   name: monitoring-gateway-tls
-#   namespace: monitoring
-# spec:
-#   secretName: monitoring-gateway-tls
-#   dnsNames:
-#   - prometheus.example.com
-#   - alertmanager.example.com
-#   - grafana.example.com
-#   issuerRef:
-#     name: our-own-issuer
-#     kind: ClusterIssuer
-#   privateKey:
-#     rotationPolicy: Always
-
